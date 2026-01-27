@@ -4,7 +4,7 @@ import pandas as pd
 from pathlib import Path
 import time
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # 设置页面配置
 st.set_page_config(
@@ -59,7 +59,28 @@ updated_at = state.get("updated_at", "Unknown")
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("持仓数量", len(positions))
 col2.metric("待建仓信号", len(pending))
-col3.metric("最后更新", updated_at.split('T')[1][:8] if 'T' in updated_at else updated_at)
+
+# 处理更新时间显示
+if updated_at and updated_at != "Unknown":
+    try:
+        utc_dt = datetime.fromisoformat(updated_at)
+        bj_dt = utc_dt + timedelta(hours=8)
+        
+        # 使用 HTML 自定义显示，支持多行显示以适应小屏幕
+        col3.markdown(
+            f"""
+            <div style="font-size: 14px; opacity: 0.6; margin-bottom: 4px;">最后更新</div>
+            <div style="font-size: 22px; font-weight: 600; line-height: 1.4;">
+                {utc_dt.strftime('%H:%M:%S')} <span style="font-size: 0.6em; opacity: 0.6;">UTC</span><br>
+                {bj_dt.strftime('%H:%M:%S')} <span style="font-size: 0.6em; opacity: 0.6;">BJ</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    except:
+        col3.metric("最后更新", updated_at)
+else:
+    col3.metric("最后更新", updated_at)
 
 # 1. 持仓管理
 st.subheader("🛡 当前持仓 (Positions)")
@@ -72,7 +93,7 @@ if positions:
         if entry_time:
             try:
                 et = datetime.fromisoformat(entry_time)
-                duration = datetime.now() - et
+                duration = datetime.utcnow() - et
                 hours = duration.total_seconds() / 3600
                 hold_time_str = f"{hours:.1f}h"
             except:
@@ -103,7 +124,7 @@ if pending:
         if timeout:
             try:
                 to = datetime.fromisoformat(timeout)
-                diff = to - datetime.now()
+                diff = to - datetime.utcnow()
                 if diff.total_seconds() > 0:
                     expire_in = f"{diff.total_seconds()/3600:.1f}h"
                 else:
@@ -135,7 +156,9 @@ st.code(logs, language="text")
 
 # 底部说明
 st.markdown("---")
-st.caption(f"Server Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+utc_now = datetime.utcnow()
+bj_now = utc_now + timedelta(hours=8)
+st.caption(f"Server Time: {utc_now.strftime('%Y-%m-%d %H:%M:%S')} (UTC) / {bj_now.strftime('%Y-%m-%d %H:%M:%S')} (BJ)")
 
 if auto_refresh:
     time.sleep(10)

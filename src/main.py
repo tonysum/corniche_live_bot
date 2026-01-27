@@ -186,7 +186,7 @@ class RealTimeBuySurgeStrategyV3:
                     pnl_pct = (curr_price - virtual_entry) / virtual_entry if virtual_entry else 0
                     
                     entry_time = datetime.fromisoformat(pos['entry_time'])
-                    hold_hours = (datetime.now() - entry_time).total_seconds() / 3600
+                    hold_hours = (datetime.utcnow() - entry_time).total_seconds() / 3600
                     
                     # 动态止盈目标计算
                     current_tp = self.take_profit_pct
@@ -220,7 +220,7 @@ class RealTimeBuySurgeStrategyV3:
         
         while not self.stop_event.is_set():
             try:
-                now = datetime.now()
+                now = datetime.utcnow()
                 
                 # 1. 每小时第 2 分钟执行全市场扫描
                 should_scan = False
@@ -274,7 +274,7 @@ class RealTimeBuySurgeStrategyV3:
             data = {
                 "positions": self.positions,
                 "pending_signals": self.pending_signals,
-                "updated_at": datetime.now().isoformat()
+                "updated_at": datetime.utcnow().isoformat()
             }
             self.state_file.write_text(json.dumps(data, indent=2))
         except Exception as e:
@@ -402,7 +402,7 @@ class RealTimeBuySurgeStrategyV3:
                     drop_pct = self.get_wait_drop_pct(buy_surge_ratio)
                     target_price = signal_close * (1 + drop_pct)
                     
-                    timeout_time = datetime.now() + timedelta(hours=self.wait_timeout_hours)
+                    timeout_time = datetime.utcnow() + timedelta(hours=self.wait_timeout_hours)
                     
                     signal_info = {
                         "symbol": symbol,
@@ -412,7 +412,7 @@ class RealTimeBuySurgeStrategyV3:
                         "target_entry_price": target_price,
                         "drop_pct": drop_pct,
                         "timeout_time": timeout_time.isoformat(),
-                        "created_at": datetime.now().isoformat()
+                        "created_at": datetime.utcnow().isoformat()
                     }
                     
                     existing_index = next((i for i, s in enumerate(self.pending_signals) if s['symbol'] == symbol), -1)
@@ -528,7 +528,7 @@ class RealTimeBuySurgeStrategyV3:
             
             self.positions[symbol] = {
                 "symbol": symbol,
-                "entry_time": datetime.now().isoformat(),
+                "entry_time": datetime.utcnow().isoformat(),
                 "entry_price": real_entry_price,
                 "quantity": quantity,
                 "buy_surge_ratio": signal_info['buy_surge_ratio'],
