@@ -3,15 +3,15 @@
   "pending_signals": [
     {
       "symbol": "ONTUSDT",
-      "signal_time": "2026-01-26T19:00:00",
-      "signal_close": 0.0621,
-      "buy_surge_ratio": 2.7004577773653335,
-      "target_entry_price": 0.057753,
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 0.0607,
+      "buy_surge_ratio": 2.2176837175094812,
+      "target_entry_price": 0.056450999999999994,
       "drop_pct": -0.07,
-      "timeout_time": "2026-01-29T01:57:01.159624",
-      "created_at": "2026-01-27T12:57:01.159645",
-      "current_price": 0.0607,
-      "distance_pct": 0.04855024711696867
+      "timeout_time": "2026-01-29T02:03:10.129100",
+      "created_at": "2026-01-27T13:03:10.129137",
+      "current_price": 0.0609,
+      "distance_pct": 0.07305418719211837
     },
     {
       "symbol": "BTCDOMUSDT",
@@ -22,8 +22,8 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:57:08.085502",
       "created_at": "2026-01-27T12:57:08.085535",
-      "current_price": 4714.5,
-      "distance_pct": 0.06749475023862565
+      "current_price": 4711.0,
+      "distance_pct": 0.06680195287624721
     },
     {
       "symbol": "ICPUSDT",
@@ -34,8 +34,8 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:57:12.593575",
       "created_at": "2026-01-27T12:57:12.593607",
-      "current_price": 3.339,
-      "distance_pct": 0.0680503144654088
+      "current_price": 3.328,
+      "distance_pct": 0.06496995192307688
     },
     {
       "symbol": "PIXELUSDT",
@@ -46,8 +46,8 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:57:23.528487",
       "created_at": "2026-01-27T12:57:23.528506",
-      "current_price": 0.00797,
-      "distance_pct": 0.06183186951066497
+      "current_price": 0.00794,
+      "distance_pct": 0.05828715365239287
     },
     {
       "symbol": "REZUSDT",
@@ -58,8 +58,8 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:57:25.313114",
       "created_at": "2026-01-27T12:57:25.313144",
-      "current_price": 0.004621,
-      "distance_pct": 0.07040251027916045
+      "current_price": 0.004615,
+      "distance_pct": 0.06919393282773574
     },
     {
       "symbol": "HYPEUSDT",
@@ -70,8 +70,8 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:57:45.848824",
       "created_at": "2026-01-27T12:57:45.848860",
-      "current_price": 26.871,
-      "distance_pct": 0.09709947527073795
+      "current_price": 26.713,
+      "distance_pct": 0.0917590686182758
     },
     {
       "symbol": "IDOLUSDT",
@@ -82,8 +82,8 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:57:48.997122",
       "created_at": "2026-01-27T12:57:48.997141",
-      "current_price": 0.03834,
-      "distance_pct": 0.07921752738654157
+      "current_price": 0.03815,
+      "distance_pct": 0.07463171690694646
     },
     {
       "symbol": "MUSDT",
@@ -94,8 +94,8 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:57:49.131150",
       "created_at": "2026-01-27T12:57:49.131177",
-      "current_price": 1.5849,
-      "distance_pct": 0.06777020632216549
+      "current_price": 1.5821,
+      "distance_pct": 0.06612034637507122
     },
     {
       "symbol": "INUSDT",
@@ -106,8 +106,8 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:57:51.462760",
       "created_at": "2026-01-27T12:57:51.462770",
-      "current_price": 0.06534,
-      "distance_pct": 0.04067952249770422
+      "current_price": 0.06594,
+      "distance_pct": 0.049408553230209235
     },
     {
       "symbol": "XPLUSDT",
@@ -118,20 +118,20 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:57:52.445547",
       "created_at": "2026-01-27T12:57:52.445572",
-      "current_price": 0.1276,
-      "distance_pct": 0.06635579937304077
+      "current_price": 0.127,
+      "distance_pct": 0.06194488188976388
     },
     {
       "symbol": "OPENUSDT",
-      "signal_time": "2026-01-26T19:00:00",
-      "signal_close": 0.1733,
-      "buy_surge_ratio": 2.227684371730259,
-      "target_entry_price": 0.161169,
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 0.1764,
+      "buy_surge_ratio": 2.8792213442865204,
+      "target_entry_price": 0.164052,
       "drop_pct": -0.07,
-      "timeout_time": "2026-01-29T01:57:54.055716",
-      "created_at": "2026-01-27T12:57:54.055750",
-      "current_price": 0.1769,
-      "distance_pct": 0.08892594686263423
+      "timeout_time": "2026-01-29T02:04:07.613939",
+      "created_at": "2026-01-27T13:04:07.613959",
+      "current_price": 0.1746,
+      "distance_pct": 0.06041237113402063
     },
     {
       "symbol": "COMMONUSDT",
@@ -142,8 +142,8 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:58:00.705454",
       "created_at": "2026-01-27T12:58:00.705476",
-      "current_price": 0.002682,
-      "distance_pct": 0.07000000000000002
+      "current_price": 0.002678,
+      "distance_pct": 0.06861090365944733
     },
     {
       "symbol": "FRAXUSDT",
@@ -154,8 +154,8 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:58:04.602097",
       "created_at": "2026-01-27T12:58:04.602128",
-      "current_price": 0.8189,
-      "distance_pct": 0.05512272560752237
+      "current_price": 0.8268,
+      "distance_pct": 0.06415094339622653
     },
     {
       "symbol": "ELSAUSDT",
@@ -166,9 +166,117 @@
       "drop_pct": -0.07,
       "timeout_time": "2026-01-29T01:58:05.158397",
       "created_at": "2026-01-27T12:58:05.158423",
-      "current_price": 0.1186,
-      "distance_pct": 0.060354974704890395
+      "current_price": 0.11935,
+      "distance_pct": 0.06625974025974027
+    },
+    {
+      "symbol": "SFPUSDT",
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 0.3663,
+      "buy_surge_ratio": 2.934783304867634,
+      "target_entry_price": 0.340659,
+      "drop_pct": -0.07,
+      "timeout_time": "2026-01-29T02:03:15.825526",
+      "created_at": "2026-01-27T13:03:15.825540",
+      "current_price": 0.3658,
+      "distance_pct": 0.0687288135593221
+    },
+    {
+      "symbol": "POWRUSDT",
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 0.08594,
+      "buy_surge_ratio": 2.3244460589540608,
+      "target_entry_price": 0.0799242,
+      "drop_pct": -0.07,
+      "timeout_time": "2026-01-29T02:03:28.953567",
+      "created_at": "2026-01-27T13:03:28.953613",
+      "current_price": 0.08605,
+      "distance_pct": 0.07118884369552586
+    },
+    {
+      "symbol": "ONGUSDT",
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 0.09152,
+      "buy_surge_ratio": 2.8505112679542295,
+      "target_entry_price": 0.0851136,
+      "drop_pct": -0.07,
+      "timeout_time": "2026-01-29T02:03:30.712838",
+      "created_at": "2026-01-27T13:03:30.712851",
+      "current_price": 0.092,
+      "distance_pct": 0.07485217391304348
+    },
+    {
+      "symbol": "SYSUSDT",
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 0.01892,
+      "buy_surge_ratio": 2.6645431959305195,
+      "target_entry_price": 0.0175956,
+      "drop_pct": -0.07,
+      "timeout_time": "2026-01-29T02:03:37.894933",
+      "created_at": "2026-01-27T13:03:37.894945",
+      "current_price": 0.01885,
+      "distance_pct": 0.0665464190981432
+    },
+    {
+      "symbol": "SUNUSDT",
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 0.018632,
+      "buy_surge_ratio": 2.6674662996171348,
+      "target_entry_price": 0.017327759999999998,
+      "drop_pct": -0.07,
+      "timeout_time": "2026-01-29T02:03:38.238361",
+      "created_at": "2026-01-27T13:03:38.238376",
+      "current_price": 0.018508,
+      "distance_pct": 0.06376918089474835
+    },
+    {
+      "symbol": "MYXUSDT",
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 5.645,
+      "buy_surge_ratio": 2.4543062043555497,
+      "target_entry_price": 5.2498499999999995,
+      "drop_pct": -0.07,
+      "timeout_time": "2026-01-29T02:04:01.445254",
+      "created_at": "2026-01-27T13:04:01.445287",
+      "current_price": 5.625,
+      "distance_pct": 0.06669333333333342
+    },
+    {
+      "symbol": "TOWNSUSDT",
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 0.006326,
+      "buy_surge_ratio": 2.255596826691453,
+      "target_entry_price": 0.00588318,
+      "drop_pct": -0.07,
+      "timeout_time": "2026-01-29T02:04:04.871033",
+      "created_at": "2026-01-27T13:04:04.871045",
+      "current_price": 0.006259,
+      "distance_pct": 0.06004473558076367
+    },
+    {
+      "symbol": "APRUSDT",
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 0.10383,
+      "buy_surge_ratio": 2.3962935331706268,
+      "target_entry_price": 0.09656189999999999,
+      "drop_pct": -0.07,
+      "timeout_time": "2026-01-29T02:04:14.204157",
+      "created_at": "2026-01-27T13:04:14.204173",
+      "current_price": 0.10321,
+      "distance_pct": 0.06441333204146889
+    },
+    {
+      "symbol": "LITUSDT",
+      "signal_time": "2026-01-27T12:00:00",
+      "signal_close": 1.848,
+      "buy_surge_ratio": 2.452179535383342,
+      "target_entry_price": 1.71864,
+      "drop_pct": -0.07,
+      "timeout_time": "2026-01-29T02:04:17.655192",
+      "created_at": "2026-01-27T13:04:17.655201",
+      "current_price": 1.829,
+      "distance_pct": 0.060338983050847464
     }
   ],
-  "updated_at": "2026-01-27T13:00:14.224745"
+  "updated_at": "2026-01-27T13:14:12.838700"
 }
