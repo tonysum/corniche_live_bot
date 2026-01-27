@@ -58,6 +58,7 @@ class RealTimeBuySurgeStrategyV3:
         state = self.load_state()
         self.positions = state.get("positions", {})
         self.pending_signals = state.get("pending_signals", [])
+        self.history = state.get("history", [])
         
         # === 策略参数 ===
         self.leverage = 4
@@ -274,6 +275,7 @@ class RealTimeBuySurgeStrategyV3:
             data = {
                 "positions": self.positions,
                 "pending_signals": self.pending_signals,
+                "history": self.history,
                 "updated_at": datetime.utcnow().isoformat()
             }
             self.state_file.write_text(json.dumps(data, indent=2))
@@ -553,6 +555,7 @@ class RealTimeBuySurgeStrategyV3:
             try:
                 pos = self.positions[symbol]
                 current_price = self.get_current_price(symbol)
+                pos['current_price'] = current_price # 保存当前价到状态
                 entry_time = datetime.fromisoformat(pos['entry_time'])
                 hold_hours = (datetime.now() - entry_time).total_seconds() / 3600
                 entry_price = pos['entry_price']
@@ -604,6 +607,8 @@ class RealTimeBuySurgeStrategyV3:
 
             except Exception as e:
                 logging.error(f"监控 {symbol} 失败: {e}")
+        
+        self.save_state()
 
     def close_position(self, symbol: str, reason: str, price: float):
         """平仓"""
@@ -612,6 +617,23 @@ class RealTimeBuySurgeStrategyV3:
             quantity = pos['quantity']
             
             logging.info(f"执行平仓 {symbol}: 原因={reason}, 价格={price}")
+            
+            # 计算盈亏记录到历史
+            entry_price = pos.get('entry_price', price)
+            pnl_pct = (price - entry_price) / entry_price
+            
+            history_entry = {
+                "symbol": symbol,
+                "reason": reason,
+                "entry_price": entry_price,
+                "exit_price": price,
+                "pnl_pct": pnl_pct,
+                "entry_time": pos.get('entry_time'),
+                "exit_time": datetime.utcnow().isoformat(),
+                "quantity": pos.get('quantity')
+            }
+            self.history.insert(0, history_entry) # 新的排在前面
+            self.history = self.history[:100] # 只保留最近100条
             
             if not self.dry_run:
                 self.api.post_order(
