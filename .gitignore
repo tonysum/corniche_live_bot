@@ -35,6 +35,7 @@ Thumbs.db
 # Data files (large)
 *.csv
 backtrade_records/
+data/
 
 # Environment
 .env
