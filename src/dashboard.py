@@ -126,17 +126,17 @@ if positions:
             current_pnl = (current_price - virtual_entry) / virtual_entry
 
         pos_data.append({
-            "Symbol": symbol,
-            "Current Price": f"{current_price:.4f}" if current_price else "N/A",
-            "PnL %": f"{current_pnl*100:.2f}%",
-            "Target Exit": f"{target_exit_price:.4f}",
-            "Dist to Exit": f"{dist_to_exit*100:.1f}%",
-            "Hold Time": hold_time_str,
-            "Max Up 12h": f"{max_up_12h*100:.1f}%",
-            "Max Up 24h": f"{max_up_24h*100:.1f}%",
-            "Virtual Entry": f"{virtual_entry:.4f}",
-            "Added?": "✅" if p.get('is_virtual_added') else "❌"
-        })
+                    "Symbol": symbol,
+                    "Current Price": f"{current_price:.4f}" if current_price else "N/A",
+                    "PnL %": f"{current_pnl*100:.2f}%",
+                    "Target Exit": f"{target_exit_price:.4f}",
+                    "Dist to Exit": f"{dist_to_exit*100:.1f}%",
+                    "Hold Time": hold_time_str,
+                    "Entry Time": entry_time.replace('T', ' ').split('.')[0],
+                    "Signal Time": p.get('signal_time', 'N/A').replace('T', ' ').split('.')[0],
+                    "Virtual Entry": f"{virtual_entry:.4f}",
+                    "Added?": "✅" if p.get('is_virtual_added') else "❌"
+                })
     st.dataframe(pd.DataFrame(pos_data), use_container_width=True)
 else:
     st.info("当前无持仓")

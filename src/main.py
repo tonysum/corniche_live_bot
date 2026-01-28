@@ -531,6 +531,7 @@ class RealTimeBuySurgeStrategyV3:
             self.positions[symbol] = {
                 "symbol": symbol,
                 "entry_time": datetime.utcnow().isoformat(),
+                "signal_time": signal_info.get('signal_time'),
                 "entry_price": real_entry_price,
                 "quantity": quantity,
                 "buy_surge_ratio": signal_info['buy_surge_ratio'],
