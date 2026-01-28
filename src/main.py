@@ -46,11 +46,17 @@ class RealTimeBuySurgeStrategyV3:
                 cls._instance._initialized = False
             return cls._instance
 
-    def __init__(self, dry_run: bool = True):
+    def __init__(self, dry_run: Optional[bool] = None):
         if self._initialized:
             return
             
-        self.dry_run = dry_run
+        # 优先从环境变量读取 LIVE_MODE，如果没有则使用构造函数参数，默认为 True (Dry Run)
+        env_live_mode = os.getenv("LIVE_MODE", "false").lower() == "true"
+        if dry_run is not None:
+            self.dry_run = dry_run
+        else:
+            self.dry_run = not env_live_mode
+            
         self.api = BinanceAPI()
         self.state_file = DATA_DIR / "trading_state.json"
         
@@ -59,6 +65,7 @@ class RealTimeBuySurgeStrategyV3:
         self.positions = state.get("positions", {})
         self.pending_signals = state.get("pending_signals", [])
         self.history = state.get("history", [])
+        self.pending_commands = state.get("pending_commands", [])
         self.balance = state.get("balance", 10000.0 if self.dry_run else 0.0)
         
         # === 策略参数 ===
@@ -227,7 +234,10 @@ class RealTimeBuySurgeStrategyV3:
                 
                 now = datetime.utcnow()
                 
-                # 1. 串行任务一：每小时扫描
+                # 1. 串行任务一：处理手动指令 (最高优先级)
+                self.process_commands()
+                
+                # 2. 串行任务二：每小时扫描
                 should_scan = False
                 if self.last_scan_hour is None:
                     logging.info("🚀 首次启动，立即执行扫描...")
@@ -279,10 +289,12 @@ class RealTimeBuySurgeStrategyV3:
         """原子化保存状态，防止文件损坏"""
         try:
             data = {
+                "is_dry_run": self.dry_run,
                 "positions": self.positions,
                 "pending_signals": self.pending_signals,
                 "history": self.history,
                 "balance": self.balance,
+                "pending_commands": self.pending_commands,
                 "last_heartbeat": datetime.utcnow().isoformat(),
                 "updated_at": datetime.utcnow().isoformat()
             }
@@ -296,6 +308,55 @@ class RealTimeBuySurgeStrategyV3:
             
         except Exception as e:
             logging.error(f"保存状态文件失败: {e}")
+
+    def process_commands(self):
+        """处理来自外部（看板）的手动指令"""
+        if not self.pending_commands:
+            return
+            
+        logging.info(f"📥 收到 {len(self.pending_commands)} 条手动指令，准备执行...")
+        
+        # 复制一份并清空原列表，防止处理过程中有新指令加入
+        commands = self.pending_commands.copy()
+        self.pending_commands = []
+        self.save_state()
+        
+        for cmd in commands:
+            try:
+                action = cmd.get("action")
+                symbol = cmd.get("symbol")
+                
+                if action == "OPEN":
+                    side = cmd.get("side", "BUY")
+                    amount = float(cmd.get("amount", 0))
+                    logging.info(f"🛠 执行手动开仓: {symbol} {side} ${amount}")
+                    
+                    current_price = self.get_current_price(symbol)
+                    # 手动下单模拟一个信号信息
+                    manual_signal = {
+                        "symbol": symbol,
+                        "buy_surge_ratio": 0,
+                        "signal_time": datetime.utcnow().isoformat(),
+                    }
+                    # 如果指定了金额，我们需要计算数量
+                    if amount > 0:
+                        # 临时调整下单比例以匹配指定金额
+                        old_ratio = self.position_size_ratio
+                        self.position_size_ratio = (amount / self.leverage) / self.balance
+                        self.open_position(symbol, current_price, manual_signal)
+                        self.position_size_ratio = old_ratio
+                    else:
+                        self.open_position(symbol, current_price, manual_signal)
+                        
+                elif action == "CLOSE":
+                    logging.info(f"🛠 执行手动平仓: {symbol}")
+                    current_price = self.get_current_price(symbol)
+                    self.close_position(symbol, "manual_exit", current_price)
+                    
+            except Exception as e:
+                logging.error(f"执行手动指令失败: {cmd} - {e}")
+        
+        self.save_state()
 
     def update_account_balance(self):
         """更新账户余额"""

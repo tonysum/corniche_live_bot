@@ -29,6 +29,19 @@ def load_state():
             return {}
     return {}
 
+def save_command(cmd):
+    """保存指令到状态文件"""
+    try:
+        state = load_state()
+        if "pending_commands" not in state:
+            state["pending_commands"] = []
+        state["pending_commands"].append(cmd)
+        STATE_FILE.write_text(json.dumps(state, indent=2))
+        return True
+    except Exception as e:
+        st.error(f"发送指令失败: {e}")
+        return False
+
 def load_logs(lines=100):
     """加载最近的日志"""
     if LOG_FILE.exists():
@@ -60,6 +73,11 @@ updated_at = state.get("updated_at", "Unknown")
 
 # 侧边栏：状态监控
 st.sidebar.subheader("🤖 运行状态")
+# 加载模式
+is_dry_run = state.get("is_dry_run", True) # 需要在 main.py 中保存此状态
+mode_str = "🟢 模拟模式 (Dry Run)" if is_dry_run else "🔴 实盘模式 (LIVE)"
+st.sidebar.info(f"当前模式: {mode_str}")
+
 if last_heartbeat != "Unknown":
     try:
         hb_dt = datetime.fromisoformat(last_heartbeat)
@@ -72,6 +90,29 @@ if last_heartbeat != "Unknown":
         st.sidebar.warning("心跳数据格式异常")
 else:
     st.sidebar.info("等待首次心跳...")
+
+# 侧边栏：手动下单
+st.sidebar.markdown("---")
+st.sidebar.subheader("🎯 手动下单 (Manual Order)")
+with st.sidebar.form("manual_order_form"):
+    m_symbol = st.text_input("交易对 (如 BTCUSDT)").upper()
+    m_side = st.selectbox("方向", ["BUY", "SELL"])
+    m_amount = st.number_input("下单金额 (USDT)", min_value=0.0, value=100.0, step=10.0)
+    submit_order = st.form_submit_button("🚀 投递开仓指令")
+    
+    if submit_order:
+        if m_symbol:
+            cmd = {
+                "action": "OPEN",
+                "symbol": m_symbol,
+                "side": m_side,
+                "amount": m_amount,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            if save_command(cmd):
+                st.sidebar.success(f"已发送: {m_side} {m_symbol}")
+        else:
+            st.sidebar.error("请输入交易对")
 
 # 顶部指标
 col1, col2, col3, col4 = st.columns(4)
@@ -155,9 +196,23 @@ if positions:
                     "Virtual Entry": f"{virtual_entry:.4f}",
                     "Added?": "✅" if p.get('is_virtual_added') else "❌"
                 })
-    st.dataframe(pd.DataFrame(pos_data), use_container_width=True)
-else:
-    st.info("当前无持仓")
+        st.dataframe(pd.DataFrame(pos_data), use_container_width=True)
+        
+        # 紧急操作区
+        st.markdown("---")
+        st.caption("🚨 紧急操作 (Emergency Controls)")
+        cols = st.columns(len(positions))
+        for i, symbol in enumerate(positions.keys()):
+            if cols[i].button(f"平仓 {symbol}", key=f"close_{symbol}"):
+                cmd = {
+                    "action": "CLOSE",
+                    "symbol": symbol,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+                if save_command(cmd):
+                    st.toast(f"已发送 {symbol} 平仓指令")
+    else:
+        st.info("当前无持仓")
 
 # 2. 待建仓信号
 st.subheader("📋 待建仓信号 (Pending Signals)")
