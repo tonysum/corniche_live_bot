@@ -54,12 +54,30 @@ state = load_state()
 positions = state.get("positions", {})
 pending = state.get("pending_signals", [])
 history = state.get("history", [])
+balance = state.get("balance", 0.0)
+last_heartbeat = state.get("last_heartbeat", "Unknown")
 updated_at = state.get("updated_at", "Unknown")
+
+# 侧边栏：状态监控
+st.sidebar.subheader("🤖 运行状态")
+if last_heartbeat != "Unknown":
+    try:
+        hb_dt = datetime.fromisoformat(last_heartbeat)
+        diff = (datetime.utcnow() - hb_dt).total_seconds()
+        if diff < 120:
+            st.sidebar.success(f"引擎在线 (Active)\n心跳: {diff:.0f}s ago")
+        else:
+            st.sidebar.error(f"引擎可能离线 (Offline?)\n最后心跳: {diff:.0f}s ago")
+    except:
+        st.sidebar.warning("心跳数据格式异常")
+else:
+    st.sidebar.info("等待首次心跳...")
 
 # 顶部指标
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("持仓数量", len(positions))
-col2.metric("待建仓信号", len(pending))
+col1.metric("资金余额", f"{balance:.2f} USDT")
+col2.metric("持仓数量", len(positions))
+col3.metric("待建仓信号", len(pending))
 
 # 处理更新时间显示
 if updated_at and updated_at != "Unknown":
@@ -68,7 +86,7 @@ if updated_at and updated_at != "Unknown":
         bj_dt = utc_dt + timedelta(hours=8)
         
         # 使用 HTML 自定义显示，支持多行显示以适应小屏幕
-        col3.markdown(
+        col4.markdown(
             f"""
             <div style="font-size: 14px; opacity: 0.6; margin-bottom: 4px;">最后更新</div>
             <div style="font-size: 22px; font-weight: 600; line-height: 1.4;">
@@ -79,9 +97,9 @@ if updated_at and updated_at != "Unknown":
             unsafe_allow_html=True
         )
     except:
-        col3.metric("最后更新", updated_at)
+        col4.metric("最后更新", updated_at)
 else:
-    col3.metric("最后更新", updated_at)
+    col4.metric("最后更新", updated_at)
 
 # 1. 持仓管理
 st.subheader("🛡 当前持仓 (Positions)")

@@ -59,6 +59,7 @@ class RealTimeBuySurgeStrategyV3:
         self.positions = state.get("positions", {})
         self.pending_signals = state.get("pending_signals", [])
         self.history = state.get("history", [])
+        self.balance = state.get("balance", 10000.0 if self.dry_run else 0.0)
         
         # === 策略参数 ===
         self.leverage = 4
@@ -216,14 +217,17 @@ class RealTimeBuySurgeStrategyV3:
                 logging.info(f"\n=== 🛡 持仓监控 (Active Positions) ===\n{table_str}")
 
     def _run_loop(self):
-        """后台运行循环"""
+        """后台运行循环 (核心串行架构)"""
         logging.info("实盘交易引擎启动...")
         
         while not self.stop_event.is_set():
             try:
+                # 记录心跳并保存
+                self.save_state()
+                
                 now = datetime.utcnow()
                 
-                # 1. 每小时第 2 分钟执行全市场扫描
+                # 1. 串行任务一：每小时扫描
                 should_scan = False
                 if self.last_scan_hour is None:
                     logging.info("🚀 首次启动，立即执行扫描...")
@@ -234,28 +238,30 @@ class RealTimeBuySurgeStrategyV3:
                 if should_scan:
                     self.scan_market()
                     self.last_scan_hour = now.hour
-                else:
-                    # 仅在未扫描时打印心跳，避免刷屏
-                    if now.second % 60 == 0: 
-                        logging.info(f"💓 运行中... 下次扫描将在 {now.hour + 1}:02 (当前 {now.strftime('%H:%M')})")
                 
-                # 2. 每分钟处理待建仓信号
+                # 2. 串行任务二：每分钟处理信号
                 self.process_pending_signals()
                 
-                # 3. 每分钟监控持仓
+                # 3. 串行任务三：每分钟监控持仓
                 self.monitor_positions()
                 
-                # 打印详细状态表
-                self.log_detailed_status()
+                # 4. 串行任务四：更新账户余额
+                self.update_account_balance()
                 
+                # 5. 打印状态摘要
+                if now.second % 60 == 0:
+                    status = self.get_status()
+                    weight = getattr(self.api, 'used_weight', 0)
+                    logging.info(f"💓 Heartbeat | Positions: {status['positions_count']} | Pending: {status['pending_signals_count']} | API Weight: {weight} | Next Scan: {now.hour + 1}:02")
+
                 # 休眠 60 秒
                 self.stop_event.wait(60)
                 
             except Exception as e:
-                logging.error(f"主循环出错: {e}")
+                logging.error(f"主循环崩溃重启: {e}")
                 import traceback
                 logging.error(traceback.format_exc())
-                self.stop_event.wait(60)
+                self.stop_event.wait(10) # 崩溃后等待10秒重启 loop
 
     def load_state(self) -> Dict:
         """加载状态"""
@@ -270,17 +276,37 @@ class RealTimeBuySurgeStrategyV3:
         return {}
 
     def save_state(self):
-        """保存状态"""
+        """原子化保存状态，防止文件损坏"""
         try:
             data = {
                 "positions": self.positions,
                 "pending_signals": self.pending_signals,
                 "history": self.history,
+                "balance": self.balance,
+                "last_heartbeat": datetime.utcnow().isoformat(),
                 "updated_at": datetime.utcnow().isoformat()
             }
-            self.state_file.write_text(json.dumps(data, indent=2))
+            
+            # 先写入临时文件
+            temp_file = self.state_file.with_suffix(".tmp")
+            temp_file.write_text(json.dumps(data, indent=2))
+            
+            # 然后重命名（原子操作）
+            temp_file.replace(self.state_file)
+            
         except Exception as e:
             logging.error(f"保存状态文件失败: {e}")
+
+    def update_account_balance(self):
+        """更新账户余额"""
+        try:
+            if not self.dry_run:
+                new_balance = self.api.get_account_balance()
+                if new_balance > 0:
+                    self.balance = new_balance
+            # 模拟模式下，余额由 close_position 更新，这里不需要操作
+        except Exception as e:
+            logging.error(f"更新余额失败: {e}")
 
     def get_kline_data(self, symbol: str, interval: str, limit: int) -> pd.DataFrame:
         """获取K线数据"""
@@ -329,24 +355,26 @@ class RealTimeBuySurgeStrategyV3:
             raise
 
     def scan_market(self):
-        """扫描全市场寻找交易机会"""
+        """扫描全市场寻找交易机会 (串行执行 + 错误隔离)"""
         logging.info("🔍 开始全市场扫描...")
         
-        symbols = self.api.in_exchange_trading_symbols(symbol_pattern=r"USDT$")
+        try:
+            symbols = self.api.in_exchange_trading_symbols(symbol_pattern=r"USDT$")
+        except Exception as e:
+            logging.error(f"获取交易对列表失败: {e}")
+            return
+
         logging.info(f"获取到 {len(symbols)} 个交易对")
         
         count = 0
-        api_call_count = 0 
-        
         scan_progress_data = []
         
+        # 计算扫描间隔，将请求平摊（假设全市场扫描在一小时内平滑完成，这里设为每个Symbol间隔0.2s）
         for symbol in symbols:
             if self.stop_event.is_set(): break
             
-            api_call_count += 1
-            if api_call_count % 100 == 0:
-                logging.info(f"⏳ API频率保护: 已扫描 {api_call_count} 个，暂停 1s...")
-                time.sleep(1)
+            # 串行执行，每个Symbol之间留一点喘息时间
+            time.sleep(0.1)
 
             if symbol in self.positions:
                 continue
@@ -359,7 +387,6 @@ class RealTimeBuySurgeStrategyV3:
                 last_closed_candle = df_1h.iloc[-2]
                 current_buy_volume = last_closed_candle['active_buy_volume']
                 signal_close = float(last_closed_candle['close'])
-                # K线时间是UTC，转换为本地时间 (CST UTC+8)
                 signal_time = last_closed_candle['trade_date'] + pd.Timedelta(hours=8)
                 
                 prev_24h_df = df_1h.iloc[-26:-2] 
@@ -367,13 +394,12 @@ class RealTimeBuySurgeStrategyV3:
                     continue
                     
                 avg_buy_volume = prev_24h_df['active_buy_volume'].mean()
-                
                 if avg_buy_volume == 0:
                     continue
                     
                 buy_surge_ratio = current_buy_volume / avg_buy_volume
                 
-                # 收集用于实时显示的数据
+                # 记录高买量币种
                 if buy_surge_ratio > 1.5:
                     scan_progress_data.append({
                         "Symbol": symbol,
@@ -383,15 +409,10 @@ class RealTimeBuySurgeStrategyV3:
                         "CurrVol": f"{current_buy_volume:.1f}"
                     })
                     if len(scan_progress_data) >= 5:
-                        df_prog = pd.DataFrame(scan_progress_data)
-                        try:
-                            table_str = df_prog.to_markdown(index=False)
-                        except:
-                            table_str = df_prog.to_string(index=False)
-                        logging.info(f"\n📊 扫描中发现的高买量币种:\n{table_str}")
+                        logging.info(f"📊 扫描中发现的高买量币种: {[s['Symbol'] for s in scan_progress_data]}")
                         scan_progress_data = [] 
 
-                # 检查信号
+                # 检查信号触发
                 if self.buy_surge_threshold <= buy_surge_ratio <= self.buy_surge_max:
                     logging.info(f"💡 发现潜在信号: {symbol} 买量倍数={buy_surge_ratio:.2f} 价格={signal_close}")
                     
@@ -403,7 +424,6 @@ class RealTimeBuySurgeStrategyV3:
                     
                     drop_pct = self.get_wait_drop_pct(buy_surge_ratio)
                     target_price = signal_close * (1 + drop_pct)
-                    
                     timeout_time = datetime.utcnow() + timedelta(hours=self.wait_timeout_hours)
                     
                     signal_info = {
@@ -419,33 +439,16 @@ class RealTimeBuySurgeStrategyV3:
                     
                     existing_index = next((i for i, s in enumerate(self.pending_signals) if s['symbol'] == symbol), -1)
                     if existing_index != -1:
-                        old_signal = self.pending_signals[existing_index]
-                        logging.info(f"   🔄 更新信号 {symbol}: 目标价 {old_signal['target_entry_price']:.4f} -> {target_price:.4f}")
-                        
-                        # 保留已有的实时数据字段，避免被覆盖
-                        if 'current_price' in old_signal:
-                            signal_info['current_price'] = old_signal['current_price']
-                        if 'distance_pct' in old_signal:
-                            signal_info['distance_pct'] = old_signal['distance_pct']
-                            
                         self.pending_signals[existing_index] = signal_info
                     else:
                         self.pending_signals.append(signal_info)
-                        logging.info(f"   ✅ 加入等待列表: 目标价 {target_price:.6f} (回调 {drop_pct*100:.1f}%)")
                         count += 1
                     
             except Exception as e:
-                logging.error(f"扫描 {symbol} 出错: {e}")
+                # 错误隔离：单个Symbol出错不影响整体扫描
+                logging.debug(f"扫描 {symbol} 出错: {e}")
                 continue
         
-        if scan_progress_data:
-            df_prog = pd.DataFrame(scan_progress_data)
-            try:
-                table_str = df_prog.to_markdown(index=False)
-            except:
-                table_str = df_prog.to_string(index=False)
-            logging.info(f"\n📊 扫描中发现的高买量币种 (剩余):\n{table_str}")
-
         self.save_state()
         logging.info(f"扫描结束，新增 {count} 个信号，当前等待: {len(self.pending_signals)}")
 
@@ -623,6 +626,15 @@ class RealTimeBuySurgeStrategyV3:
             entry_price = pos.get('entry_price', price)
             pnl_pct = (price - entry_price) / entry_price
             
+            # 模拟模式下更新虚拟余额
+            if self.dry_run:
+                # 计算这笔交易的实际盈利金额 (不考虑手续费)
+                # 盈利 = 下单金额 * 盈亏比例
+                position_amount = self.balance * self.position_size_ratio * self.leverage
+                profit_amount = position_amount * pnl_pct
+                self.balance += profit_amount
+                logging.info(f"[模拟] 余额更新: {self.balance:.2f} (盈亏: {profit_amount:.2f})")
+
             history_entry = {
                 "symbol": symbol,
                 "reason": reason,

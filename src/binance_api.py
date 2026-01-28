@@ -67,12 +67,37 @@ class BinanceAPI:
         )
         self.client = DerivativesTradingUsdsFutures(config_rest_api=configuration_rest_api)
         self._exchange_info_cache = None
+        
+        # 权重控制
+        self.used_weight = 0
+        self.max_weight = 1200
+        self.last_weight_reset = pd.Timestamp.now()
+
+    def _check_weight(self, weight: int = 1):
+        """简单的权重检查与限速"""
+        now = pd.Timestamp.now()
+        # 每分钟重置权重
+        if (now - self.last_weight_reset).total_seconds() > 60:
+            self.used_weight = 0
+            self.last_weight_reset = now
+            
+        if self.used_weight + weight > self.max_weight * 0.9: # 预留10%缓冲
+            sleep_time = 60 - (now - self.last_weight_reset).total_seconds()
+            if sleep_time > 0:
+                logging.warning(f"⚠️ API权重接近临界值 ({self.used_weight}), 暂停 {sleep_time:.1f}s")
+                import time
+                time.sleep(sleep_time)
+                self.used_weight = 0
+                self.last_weight_reset = pd.Timestamp.now()
+        
+        self.used_weight += weight
 
     def get_exchange_info(self) -> dict:
         """获取交易所信息（带简单缓存）"""
         if self._exchange_info_cache:
             return self._exchange_info_cache
         try:
+            self._check_weight(1)
             response = self.client.rest_api.exchange_information()
             self._exchange_info_cache = response.data()
             return self._exchange_info_cache
@@ -117,6 +142,7 @@ class BinanceAPI:
     def change_leverage(self, symbol: str, leverage: int):
         """调整杠杆倍数"""
         try:
+            self._check_weight(1)
             self.client.rest_api.change_initial_leverage(symbol=symbol, leverage=leverage)
             logging.info(f"已设置 {symbol} 杠杆为 {leverage}x")
         except Exception as e:
@@ -127,6 +153,7 @@ class BinanceAPI:
         try:
             # 使用 Enum 转换参数
             margin_type_enum = ChangeMarginTypeMarginTypeEnum(margin_type.upper())
+            self._check_weight(1)
             self.client.rest_api.change_margin_type(symbol=symbol, margin_type=margin_type_enum)
             logging.info(f"已设置 {symbol} 保证金模式为 {margin_type}")
         except ValueError:
@@ -143,6 +170,7 @@ class BinanceAPI:
     ) -> List[str]:
         """获取币安交易所所有合约交易对"""
         try:
+            self._check_weight(1)
             response = self.client.rest_api.exchange_information()
             data = response.data()
             usdt_symbols = [
@@ -164,6 +192,7 @@ class BinanceAPI:
     ):
         """获取K线数据"""
         try:
+            self._check_weight(1)
             response = self.client.rest_api.kline_candlestick_data(
                 symbol=symbol,
                 interval=interval,
@@ -217,7 +246,7 @@ class BinanceAPI:
             
             if stop_price is not None and tick_size:
                 stop_price = self.adjust_precision(stop_price, tick_size)
-
+            
             # 4. 调整数量精度
             if quantity > 0 and step_size:
                 original_qty = quantity
@@ -262,6 +291,7 @@ class BinanceAPI:
                 params["reduce_only"] = "true"
 
             # 6. 发送订单
+            self._check_weight(1)
             response = self.client.rest_api.new_order(**params)
             logging.info(f"下单成功: {symbol} {side} {ord_type} {quantity}")
             return response.data()
@@ -269,10 +299,11 @@ class BinanceAPI:
         except Exception as e:
             logging.error(f"下单失败: {symbol} {side} {ord_type} {quantity} - {e}")
             raise
-
+    
     def get_account_balance(self) -> float:
         """获取 USDT 可用余额"""
         try:
+            self._check_weight(5)
             response = self.client.rest_api.futures_account_balance_v2()
             data = response.data()
             for asset in data:
@@ -286,6 +317,7 @@ class BinanceAPI:
     def get_position_risk(self, symbol: Optional[str] = None) -> List[dict]:
         """获取持仓风险信息"""
         try:
+            self._check_weight(5)
             if symbol:
                 response = self.client.rest_api.position_information_v2(symbol=symbol)
             else:
@@ -300,6 +332,7 @@ class BinanceAPI:
     def get_top_long_short_ratio(self, symbol: str, period: str = "5m", limit: int = 1) -> float:
         """获取顶级交易者账户多空比"""
         try:
+            self._check_weight(1)
             response = self.client.rest_api.top_trader_long_short_ratio_accounts(
                 symbol=symbol,
                 period=period,
