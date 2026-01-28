@@ -185,34 +185,36 @@ if positions:
             current_pnl = (current_price - virtual_entry) / virtual_entry
 
         pos_data.append({
-                    "Symbol": symbol,
-                    "Current Price": f"{current_price:.4f}" if current_price else "N/A",
-                    "PnL %": f"{current_pnl*100:.2f}%",
-                    "Target Exit": f"{target_exit_price:.4f}",
-                    "Dist to Exit": f"{dist_to_exit*100:.1f}%",
-                    "Hold Time": hold_time_str,
-                    "Entry Time": entry_time.replace('T', ' ').split('.')[0],
-                    "Signal Time": p.get('signal_time', 'N/A').replace('T', ' ').split('.')[0],
-                    "Virtual Entry": f"{virtual_entry:.4f}",
-                    "Added?": "✅" if p.get('is_virtual_added') else "❌"
-                })
-        st.dataframe(pd.DataFrame(pos_data), use_container_width=True)
-        
-        # 紧急操作区
-        st.markdown("---")
-        st.caption("🚨 紧急操作 (Emergency Controls)")
-        cols = st.columns(len(positions))
-        for i, symbol in enumerate(positions.keys()):
-            if cols[i].button(f"平仓 {symbol}", key=f"close_{symbol}"):
-                cmd = {
-                    "action": "CLOSE",
-                    "symbol": symbol,
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-                if save_command(cmd):
-                    st.toast(f"已发送 {symbol} 平仓指令")
-    else:
-        st.info("当前无持仓")
+            "Symbol": symbol,
+            "Current Price": f"{current_price:.4f}" if current_price else "N/A",
+            "PnL %": f"{current_pnl*100:.2f}%",
+            "Target Exit": f"{target_exit_price:.4f}",
+            "Dist to Exit": f"{dist_to_exit*100:.1f}%",
+            "Hold Time": hold_time_str,
+            "Entry Time": entry_time.replace('T', ' ').split('.')[0],
+            "Signal Time": p.get('signal_time', 'N/A').replace('T', ' ').split('.')[0],
+            "Virtual Entry": f"{virtual_entry:.4f}",
+            "Added?": "✅" if p.get('is_virtual_added') else "❌"
+        })
+
+    # 1.1 显示持仓表格
+    st.dataframe(pd.DataFrame(pos_data), use_container_width=True)
+
+    # 1.2 紧急操作区
+    st.markdown("---")
+    st.caption("🚨 紧急操作 (Emergency Controls)")
+    cols = st.columns(max(len(positions), 1))
+    for i, symbol in enumerate(positions.keys()):
+        if cols[i].button(f"平仓 {symbol}", key=f"close_{symbol}"):
+            cmd = {
+                "action": "CLOSE",
+                "symbol": symbol,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            if save_command(cmd):
+                st.toast(f"已发送 {symbol} 平仓指令")
+else:
+    st.info("当前无持仓")
 
 # 2. 待建仓信号
 st.subheader("📋 待建仓信号 (Pending Signals)")
