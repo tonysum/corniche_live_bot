@@ -224,7 +224,7 @@ if positions:
         })
 
     # 1.1 显示持仓表格
-    st.dataframe(pd.DataFrame(pos_data), use_container_width=True)
+    st.dataframe(pd.DataFrame(pos_data), width='stretch')
 
     # 1.2 紧急操作区
     st.markdown("---")
@@ -274,7 +274,7 @@ if pending:
             "Expire In": expire_in,
             "Created At": p.get('created_at', '').split('.')[0].replace('T', ' ')
         })
-    st.dataframe(pd.DataFrame(pend_data), use_container_width=True)
+    st.dataframe(pd.DataFrame(pend_data), width='stretch')
 else:
     st.info("当前无等待信号")
 
@@ -296,7 +296,7 @@ if history:
             "Entry Time": h.get('entry_time', '').replace('T', ' ').split('.')[0],
             "Exit Time": h.get('exit_time', '').replace('T', ' ').split('.')[0]
         })
-    st.dataframe(pd.DataFrame(hist_data), use_container_width=True)
+    st.dataframe(pd.DataFrame(hist_data), width='stretch')
 else:
     st.info("暂无历史成交记录")
 
