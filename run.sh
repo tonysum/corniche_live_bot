@@ -25,27 +25,28 @@ fi
 # 启动选项
 case "$1" in
     start)
-        echo "Starting Trading Bot..."
-        # 使用 nohup 后台运行，日志重定向到 /dev/null (因为程序内部已经写日志了)
-        nohup python src/main.py > /dev/null 2>&1 &
-        echo "Bot started with PID $!"
-        
-        echo "Starting Dashboard..."
-        nohup streamlit run src/dashboard.py --server.port 8501 > /dev/null 2>&1 &
-        echo "Dashboard started on port 8501"
+        echo "Starting with PM2..."
+        pm2 start ecosystem.config.js
         ;;
     stop)
-        echo "Stopping processes..."
-        pkill -f "src/main.py"
-        pkill -f "streamlit run src/dashboard.py"
-        echo "Stopped."
+        echo "Stopping processes with PM2..."
+        pm2 stop ecosystem.config.js
+        ;;
+    restart)
+        echo "Restarting with PM2..."
+        pm2 restart ecosystem.config.js
         ;;
     status)
-        pgrep -a python | grep "src/main.py"
-        pgrep -a streamlit
+        pm2 status
+        ;;
+    monit)
+        pm2 monit
+        ;;
+    log)
+        pm2 logs
         ;;
     *)
-        echo "Usage: $0 {start|stop|status}"
+        echo "Usage: $0 {start|stop|restart|status|monit|log}"
         exit 1
         ;;
 esac
