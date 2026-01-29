@@ -55,9 +55,36 @@ def load_logs(lines=100):
             return f"Error reading logs: {e}"
     return "No log file found."
 
+@st.fragment(run_every=50)
+def sidebar_status():
+    state = load_state()
+    last_heartbeat = state.get("last_heartbeat", "Unknown")
+    is_dry_run = state.get("is_dry_run", True)
+    
+    st.subheader("🤖 运行状态")
+    mode_str = "🟢 模拟模式 (Dry Run)" if is_dry_run else "🔴 实盘模式 (LIVE)"
+    st.info(f"当前模式: {mode_str}")
+
+    if last_heartbeat != "Unknown":
+        try:
+            hb_dt = datetime.fromisoformat(last_heartbeat).replace(tzinfo=UTC)
+            diff = (datetime.now(UTC) - hb_dt).total_seconds()
+            if diff < 120:
+                st.success(f"引擎在线\n心跳: {diff:.0f}s ago")
+            else:
+                st.error(f"引擎离线?\n最后心跳: {diff:.0f}s ago")
+        except:
+            st.warning("心跳异常")
+
 # === 侧边栏：长期稳定项 ===
 st.sidebar.title("Corniche Bot")
 auto_refresh = st.sidebar.checkbox("Auto Refresh (50s)", value=True)
+
+with st.sidebar:
+    if auto_refresh:
+        sidebar_status()
+    else:
+        sidebar_status()
 
 # 侧边栏：手动下单 (放在外面保证输入不被打断)
 st.sidebar.markdown("---")
@@ -119,26 +146,8 @@ def main_content():
     pending = state.get("pending_signals", [])
     history = state.get("history", [])
     balance = state.get("balance", 0.0)
-    last_heartbeat = state.get("last_heartbeat", "Unknown")
     updated_at = state.get("updated_at", "Unknown")
 
-    # 侧边栏状态部分 (放在 Fragment 里，只刷新这块)
-    st.sidebar.subheader("🤖 运行状态")
-    is_dry_run = state.get("is_dry_run", True)
-    mode_str = "🟢 模拟模式 (Dry Run)" if is_dry_run else "🔴 实盘模式 (LIVE)"
-    st.sidebar.info(f"当前模式: {mode_str}")
-
-    if last_heartbeat != "Unknown":
-        try:
-            hb_dt = datetime.fromisoformat(last_heartbeat).replace(tzinfo=UTC)
-            diff = (datetime.now(UTC) - hb_dt).total_seconds()
-            if diff < 120:
-                st.sidebar.success(f"引擎在线\n心跳: {diff:.0f}s ago")
-            else:
-                st.sidebar.error(f"引擎离线?\n最后心跳: {diff:.0f}s ago")
-        except:
-            st.sidebar.warning("心跳异常")
-    
     # 顶部指标
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("资金余额", f"{balance:.2f} USDT")
