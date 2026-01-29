@@ -4,7 +4,7 @@ import pandas as pd
 from pathlib import Path
 import time
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 # 设置页面配置
 st.set_page_config(
@@ -80,8 +80,8 @@ st.sidebar.info(f"当前模式: {mode_str}")
 
 if last_heartbeat != "Unknown":
     try:
-        hb_dt = datetime.fromisoformat(last_heartbeat)
-        diff = (datetime.utcnow() - hb_dt).total_seconds()
+        hb_dt = datetime.fromisoformat(last_heartbeat).replace(tzinfo=UTC)
+        diff = (datetime.now(UTC) - hb_dt).total_seconds()
         if diff < 120:
             st.sidebar.success(f"引擎在线 (Active)\n心跳: {diff:.0f}s ago")
         else:
@@ -133,7 +133,7 @@ with st.sidebar.form("manual_order_form"):
                     "amount": m_amount if qty_mode == "按金额 (USDT)" else 0,
                     "quantity": m_qty if qty_mode == "按数量 (Qty)" else 0,
                     "leverage": m_leverage,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(UTC).isoformat()
                 }
                 if save_command(cmd):
                     st.sidebar.success(f"已发送: {m_side} {m_symbol}")
@@ -149,7 +149,7 @@ col3.metric("待建仓信号", len(pending))
 # 处理更新时间显示
 if updated_at and updated_at != "Unknown":
     try:
-        utc_dt = datetime.fromisoformat(updated_at)
+        utc_dt = datetime.fromisoformat(updated_at).replace(tzinfo=UTC)
         bj_dt = utc_dt + timedelta(hours=8)
         
         # 使用 HTML 自定义显示，支持多行显示以适应小屏幕
@@ -179,8 +179,8 @@ if positions:
         hours = 0
         if entry_time:
             try:
-                et = datetime.fromisoformat(entry_time)
-                duration = datetime.utcnow() - et
+                et = datetime.fromisoformat(entry_time).replace(tzinfo=UTC)
+                duration = datetime.now(UTC) - et
                 hours = duration.total_seconds() / 3600
                 hold_time_str = f"{hours:.1f}h"
             except:
@@ -235,7 +235,7 @@ if positions:
             cmd = {
                 "action": "CLOSE",
                 "symbol": symbol,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
             if save_command(cmd):
                 st.toast(f"已发送 {symbol} 平仓指令")
@@ -252,8 +252,8 @@ if pending:
         expire_in = "N/A"
         if timeout:
             try:
-                to = datetime.fromisoformat(timeout)
-                diff = to - datetime.utcnow()
+                to = datetime.fromisoformat(timeout).replace(tzinfo=UTC)
+                diff = to - datetime.now(UTC)
                 if diff.total_seconds() > 0:
                     expire_in = f"{diff.total_seconds()/3600:.1f}h"
                 else:
@@ -307,7 +307,7 @@ st.code(logs, language="text")
 
 # 底部说明
 st.markdown("---")
-utc_now = datetime.utcnow()
+utc_now = datetime.now(UTC)
 bj_now = utc_now + timedelta(hours=8)
 st.caption(f"Server Time: {utc_now.strftime('%Y-%m-%d %H:%M:%S')} (UTC) / {bj_now.strftime('%Y-%m-%d %H:%M:%S')} (BJ)")
 

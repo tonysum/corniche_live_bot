@@ -4,7 +4,7 @@ import logging
 import threading
 import os
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
@@ -195,8 +195,8 @@ class RealTimeBuySurgeStrategyV3:
                     virtual_entry = pos['virtual_entry_price']
                     pnl_pct = (curr_price - virtual_entry) / virtual_entry if virtual_entry else 0
                     
-                    entry_time = datetime.fromisoformat(pos['entry_time'])
-                    hold_hours = (datetime.utcnow() - entry_time).total_seconds() / 3600
+                    entry_time = datetime.fromisoformat(pos['entry_time']).replace(tzinfo=UTC)
+                    hold_hours = (datetime.now(UTC) - entry_time).total_seconds() / 3600
                     
                     # 动态止盈目标计算
                     current_tp = self.take_profit_pct
@@ -233,7 +233,7 @@ class RealTimeBuySurgeStrategyV3:
                 # 记录心跳并保存
                 self.save_state()
                 
-                now = datetime.utcnow()
+                now = datetime.now(UTC)
                 
                 # 1. 串行任务一：处理手动指令 (最高优先级)
                 self.process_commands()
@@ -296,8 +296,8 @@ class RealTimeBuySurgeStrategyV3:
                 "history": self.history,
                 "balance": self.balance,
                 "pending_commands": self.pending_commands,
-                "last_heartbeat": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat()
+                "last_heartbeat": datetime.now(UTC).isoformat(),
+                "updated_at": datetime.now(UTC).isoformat()
             }
             
             # 先写入临时文件
@@ -343,7 +343,7 @@ class RealTimeBuySurgeStrategyV3:
                     manual_signal = {
                         "symbol": symbol,
                         "buy_surge_ratio": 0,
-                        "signal_time": datetime.utcnow().isoformat(),
+                        "signal_time": datetime.now(UTC).isoformat(),
                     }
                     
                     # 临时调整杠杆
@@ -507,7 +507,7 @@ class RealTimeBuySurgeStrategyV3:
                     
                     drop_pct = self.get_wait_drop_pct(buy_surge_ratio)
                     target_price = signal_close * (1 + drop_pct)
-                    timeout_time = datetime.utcnow() + timedelta(hours=self.wait_timeout_hours)
+                    timeout_time = datetime.now(UTC) + timedelta(hours=self.wait_timeout_hours)
                     
                     signal_info = {
                         "symbol": symbol,
@@ -517,7 +517,7 @@ class RealTimeBuySurgeStrategyV3:
                         "target_entry_price": target_price,
                         "drop_pct": drop_pct,
                         "timeout_time": timeout_time.isoformat(),
-                        "created_at": datetime.utcnow().isoformat()
+                        "created_at": datetime.now(UTC).isoformat()
                     }
                     
                     existing_index = next((i for i, s in enumerate(self.pending_signals) if s['symbol'] == symbol), -1)
@@ -541,13 +541,13 @@ class RealTimeBuySurgeStrategyV3:
             return
             
         logging.info(f"🔄 检查待建仓信号 ({len(self.pending_signals)}个)...")
-        now = datetime.now()
+        now = datetime.now(UTC)
         remaining_signals = []
         
         for signal in self.pending_signals:
             symbol = signal['symbol']
             target_price = signal['target_entry_price']
-            timeout_time = datetime.fromisoformat(signal['timeout_time'])
+            timeout_time = datetime.fromisoformat(signal['timeout_time']).replace(tzinfo=UTC)
             
             if now > timeout_time:
                 logging.info(f"⏰ 信号超时移除: {symbol}")
@@ -621,7 +621,7 @@ class RealTimeBuySurgeStrategyV3:
             
             self.positions[symbol] = {
                 "symbol": symbol,
-                "entry_time": datetime.utcnow().isoformat(),
+                "entry_time": datetime.now(UTC).isoformat(),
                 "signal_time": signal_info.get('signal_time'),
                 "entry_price": real_entry_price,
                 "quantity": quantity,
@@ -648,8 +648,8 @@ class RealTimeBuySurgeStrategyV3:
                 pos = self.positions[symbol]
                 current_price = self.get_current_price(symbol)
                 pos['current_price'] = current_price # 保存当前价到状态
-                entry_time = datetime.fromisoformat(pos['entry_time'])
-                hold_hours = (datetime.now() - entry_time).total_seconds() / 3600
+                entry_time = datetime.fromisoformat(pos['entry_time']).replace(tzinfo=UTC)
+                hold_hours = (datetime.now(UTC) - entry_time).total_seconds() / 3600
                 entry_price = pos['entry_price']
                 current_up = (current_price - entry_price) / entry_price
                 
@@ -730,7 +730,7 @@ class RealTimeBuySurgeStrategyV3:
                 "exit_price": price,
                 "pnl_pct": pnl_pct,
                 "entry_time": pos.get('entry_time'),
-                "exit_time": datetime.utcnow().isoformat(),
+                "exit_time": datetime.now(UTC).isoformat(),
                 "quantity": pos.get('quantity')
             }
             self.history.insert(0, history_entry) # 新的排在前面
