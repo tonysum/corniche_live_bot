@@ -5,6 +5,7 @@ from pathlib import Path
 import time
 import os
 from datetime import datetime, timedelta, UTC
+from collections import deque
 
 # 设置页面配置
 st.set_page_config(
@@ -49,8 +50,7 @@ def load_logs(lines=100):
             # 读取最后 N 行
             # 使用简单的读取方式，如果文件很大可能需要优化
             with open(LOG_FILE, 'r') as f:
-                content = f.readlines()
-                return "".join(content[-lines:])
+                return "".join(deque(f, lines))
         except Exception as e:
             return f"Error reading logs: {e}"
     return "No log file found."

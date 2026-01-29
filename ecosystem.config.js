@@ -13,8 +13,8 @@ module.exports = {
         },
         {
             name: "corniche-dashboard",
-            script: "./venv/bin/streamlit",
-            args: "run src/dashboard.py --server.port 8501",
+            script: "venv/bin/python3",
+            args: "-m streamlit run src/dashboard.py --server.port 8501",
             interpreter: "none",
             watch: false,
             autorestart: true,

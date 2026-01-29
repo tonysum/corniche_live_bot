@@ -549,6 +549,18 @@ class RealTimeBuySurgeStrategyV3:
             target_price = signal['target_entry_price']
             timeout_time = datetime.fromisoformat(signal['timeout_time']).replace(tzinfo=UTC)
             
+            try:
+                if now.tzinfo is not None and timeout_time.tzinfo is None:
+                    # now is aware, timeout_time is naive
+                    logging.debug(f"Handling naive timeout_time for {symbol}")
+                    timeout_time = timeout_time.replace(tzinfo=UTC)
+                elif now.tzinfo is None and timeout_time.tzinfo is not None:
+                    # now is naive, timeout_time is aware
+                    logging.debug(f"Handling naive now for {symbol}")
+                    now = now.replace(tzinfo=UTC)
+            except Exception as e:
+                logging.error(f"Error normalizing datetimes: {e}")
+
             if now > timeout_time:
                 logging.info(f"⏰ 信号超时移除: {symbol}")
                 continue
