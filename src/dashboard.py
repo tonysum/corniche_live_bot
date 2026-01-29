@@ -97,20 +97,46 @@ st.sidebar.subheader("🎯 手动下单 (Manual Order)")
 with st.sidebar.form("manual_order_form"):
     m_symbol = st.text_input("交易对 (如 BTCUSDT)").upper()
     m_side = st.selectbox("方向", ["BUY", "SELL"])
-    m_amount = st.number_input("下单金额 (USDT)", min_value=0.0, value=100.0, step=10.0)
+    m_type = st.selectbox("类型", ["MARKET", "LIMIT"])
+    
+    # 根据类型动态显示输入框
+    m_price = 0.0
+    if m_type == "LIMIT":
+        m_price = st.number_input("委托价格", min_value=0.0, value=0.0, step=0.0001, format="%.4f")
+    
+    # 允许选择 按金额 或 按数量 下单
+    qty_mode = st.radio("下单模式", ["按金额 (USDT)", "按数量 (Qty)"], horizontal=True)
+    m_amount = 0.0
+    m_qty = 0.0
+    if qty_mode == "按金额 (USDT)":
+        m_amount = st.number_input("下单金额 (USDT)", min_value=0.0, value=100.0, step=10.0)
+    else:
+        m_qty = st.number_input("下单数量", min_value=0.0, value=0.0, step=0.001, format="%.3f")
+        
+    m_leverage = st.slider("杠杆倍数", min_value=1, max_value=50, value=4)
     submit_order = st.form_submit_button("🚀 投递开仓指令")
     
     if submit_order:
         if m_symbol:
-            cmd = {
-                "action": "OPEN",
-                "symbol": m_symbol,
-                "side": m_side,
-                "amount": m_amount,
-                "timestamp": datetime.utcnow().isoformat()
-            }
-            if save_command(cmd):
-                st.sidebar.success(f"已发送: {m_side} {m_symbol}")
+            # 基础检查
+            if m_type == "LIMIT" and m_price <= 0:
+                st.sidebar.error("限价单必须输入价格")
+            elif qty_mode == "按数量 (Qty)" and m_qty <= 0:
+                st.sidebar.error("请输入下单数量")
+            else:
+                cmd = {
+                    "action": "OPEN",
+                    "symbol": m_symbol,
+                    "side": m_side,
+                    "type": m_type,
+                    "price": m_price if m_type == "LIMIT" else None,
+                    "amount": m_amount if qty_mode == "按金额 (USDT)" else 0,
+                    "quantity": m_qty if qty_mode == "按数量 (Qty)" else 0,
+                    "leverage": m_leverage,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+                if save_command(cmd):
+                    st.sidebar.success(f"已发送: {m_side} {m_symbol}")
         else:
             st.sidebar.error("请输入交易对")
 

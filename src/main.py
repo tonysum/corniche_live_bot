@@ -2,6 +2,7 @@ import time
 import json
 import logging
 import threading
+import os
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -328,25 +329,46 @@ class RealTimeBuySurgeStrategyV3:
                 
                 if action == "OPEN":
                     side = cmd.get("side", "BUY")
+                    ord_type = cmd.get("type", "MARKET")
                     amount = float(cmd.get("amount", 0))
-                    logging.info(f"🛠 执行手动开仓: {symbol} {side} ${amount}")
+                    qty_manual = float(cmd.get("quantity", 0))
+                    price_manual = cmd.get("price")
+                    leverage = int(cmd.get("leverage", self.leverage))
                     
-                    current_price = self.get_current_price(symbol)
+                    logging.info(f"🛠 执行手动开仓: {symbol} {side} {ord_type} (杠杆:{leverage}x)")
+                    
+                    current_price = price_manual if price_manual and price_manual > 0 else self.get_current_price(symbol)
+                    
                     # 手动下单模拟一个信号信息
                     manual_signal = {
                         "symbol": symbol,
                         "buy_surge_ratio": 0,
                         "signal_time": datetime.utcnow().isoformat(),
                     }
-                    # 如果指定了金额，我们需要计算数量
-                    if amount > 0:
-                        # 临时调整下单比例以匹配指定金额
+                    
+                    # 临时调整杠杆
+                    old_leverage = self.leverage
+                    self.leverage = leverage
+                    
+                    if not self.dry_run:
+                        self.api.change_leverage(symbol, self.leverage)
+                    
+                    # 如果指定了具体数量，直接使用
+                    if qty_manual > 0:
+                        # 暂时修改 open_position 的逻辑以支持直接传入数量
+                        self.open_position(symbol, current_price, manual_signal, side=side, ord_type=ord_type, override_qty=qty_manual)
+                    elif amount > 0:
+                        # 按金额计算
                         old_ratio = self.position_size_ratio
                         self.position_size_ratio = (amount / self.leverage) / self.balance
-                        self.open_position(symbol, current_price, manual_signal)
+                        self.open_position(symbol, current_price, manual_signal, side=side, ord_type=ord_type)
                         self.position_size_ratio = old_ratio
                     else:
-                        self.open_position(symbol, current_price, manual_signal)
+                        # 按默认策略比例计算
+                        self.open_position(symbol, current_price, manual_signal, side=side, ord_type=ord_type)
+                    
+                    # 恢复默认杠杆
+                    self.leverage = old_leverage
                         
                 elif action == "CLOSE":
                     logging.info(f"🛠 执行手动平仓: {symbol}")
@@ -558,7 +580,7 @@ class RealTimeBuySurgeStrategyV3:
         self.pending_signals = remaining_signals
         self.save_state()
 
-    def open_position(self, symbol: str, price: float, signal_info: Dict):
+    def open_position(self, symbol: str, price: float, signal_info: Dict, side: str = "BUY", ord_type: str = "MARKET", override_qty: float = 0):
         """执行开仓"""
         quantity = 0.0
         
@@ -570,10 +592,14 @@ class RealTimeBuySurgeStrategyV3:
             
             if self.dry_run: balance = 10000.0
                 
-            position_amount = balance * self.position_size_ratio * self.leverage
-            quantity = position_amount / price
+            if override_qty > 0:
+                quantity = override_qty
+                position_amount = quantity * price
+            else:
+                position_amount = balance * self.position_size_ratio * self.leverage
+                quantity = position_amount / price
             
-            logging.info(f"准备下单 {symbol}: 数量={quantity:.4f}, 金额={position_amount:.2f}")
+            logging.info(f"准备下单 {symbol}: 方向={side}, 类型={ord_type}, 数量={quantity:.4f}, 金额={position_amount:.2f}")
             
             real_entry_price = price
             
@@ -583,14 +609,15 @@ class RealTimeBuySurgeStrategyV3:
                 
                 response = self.api.post_order(
                     symbol=symbol,
-                    side="BUY",
-                    ord_type="MARKET",
-                    quantity=quantity
+                    side=side,
+                    ord_type=ord_type,
+                    quantity=quantity,
+                    price=price if ord_type == "LIMIT" else None
                 )
                 real_entry_price = float(response.get('avgPrice', price))
                 quantity = float(response.get('executedQty', quantity))
             else:
-                logging.info(f"[模拟] 下单成功: {symbol} BUY {quantity}")
+                logging.info(f"[模拟] 下单成功: {symbol} {side} {ord_type} {quantity}")
             
             self.positions[symbol] = {
                 "symbol": symbol,

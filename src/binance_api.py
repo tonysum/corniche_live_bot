@@ -2,7 +2,7 @@ import os
 import logging
 import re
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 import math
 import pandas as pd
 from dotenv import load_dotenv
@@ -37,6 +37,20 @@ else:
 
 # Configure logging (will be overridden by main app usually)
 logging.basicConfig(level=logging.INFO)
+
+def snake_to_camel(snake_str: str) -> str:
+    """将snake_case转换为camelCase"""
+    components = snake_str.split('_')
+    return components[0] + ''.join(x.capitalize() for x in components[1:])
+
+def convert_dict_keys(data: Any, convert_func=snake_to_camel) -> Any:
+    """递归转换字典的键名"""
+    if isinstance(data, dict):
+        return {convert_func(k): convert_dict_keys(v, convert_func) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_dict_keys(item, convert_func) for item in data]
+    else:
+        return data
 
 class BinanceAPI:
     """币安API客户端封装类"""
@@ -216,11 +230,12 @@ class BinanceAPI:
         stop_price: Optional[float] = None,
         time_in_force: str = "GTC",
         reduce_only: bool = False,
-        close_position: bool = False
-    ):
-        """发送订单 (增强版)"""
+        close_position: bool = False,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """发送订单 (重构版 - 参照 binance-order)"""
         try:
-            # 1. 如果是平仓单，自动获取持仓数量
+            # 1. 平仓逻辑增强
             if close_position:
                 positions = self.get_position_risk(symbol=symbol)
                 target_pos = next((p for p in positions if float(p.get('positionAmt', 0)) != 0), None)
@@ -232,72 +247,75 @@ class BinanceAPI:
                 side = "SELL" if pos_amt > 0 else "BUY"
                 quantity = abs(pos_amt)
                 reduce_only = True
-                logging.info(f"自动平仓模式: {symbol} 持仓={pos_amt} -> 下单 {side} {quantity}")
+                logging.info(f"🔄 自动平仓模式: {symbol} 持仓={pos_amt} -> 下单 {side} {quantity}")
 
-            # 2. 获取交易对过滤器信息 (精度)
+            # 2. 获取并应用精度过滤器
             tick_size, step_size = self.get_symbol_filters(symbol)
             
-            # 3. 调整价格精度
             if price is not None and tick_size:
                 original_price = price
                 price = self.adjust_precision(price, tick_size)
-                if price != original_price:
-                    logging.info(f"价格精度调整: {original_price} -> {price}")
+                if abs(price - original_price) > tick_size * 0.1:
+                    logging.info(f"⚖️ 价格精度调整: {original_price} -> {price} (tick: {tick_size})")
             
             if stop_price is not None and tick_size:
                 stop_price = self.adjust_precision(stop_price, tick_size)
             
-            # 4. 调整数量精度
             if quantity > 0 and step_size:
                 original_qty = quantity
                 quantity = self.adjust_precision(quantity, step_size)
-                if quantity != original_qty:
-                    logging.info(f"数量精度调整: {original_qty} -> {quantity}")
+                if abs(quantity - original_qty) > step_size * 0.1:
+                    logging.info(f"⚖️ 数量精度调整: {original_qty} -> {quantity} (step: {step_size})")
             
             if quantity <= 0:
-                raise ValueError(f"下单数量无效: {quantity}")
+                raise ValueError(f"下单数量无效: {quantity} (调整自 {original_qty if 'original_qty' in locals() else 'None'})")
 
-            # 5. 构建参数
+            # 3. 验证名义价值 (Notional Value >= 100 USDT)
+            # 注意：仅在非 reduce_only 且有价格信息时验证
+            if not reduce_only and price is not None:
+                notional = quantity * price
+                if notional < 100:
+                    logging.warning(f"⚠️ 订单名义价值 {notional:.2f} USDT 低于 100 USDT，可能会被交易所拒绝")
+
+            # 4. 构建参数 (使用 SDK 要求的 snake_case)
             params = {
                 "symbol": symbol,
-                "type": ord_type,
+                "side": side.upper(),
+                "type": ord_type.upper(),
                 "quantity": quantity,
             }
 
-            # 处理订单方向 (Side)
-            try:
-                side_enum = NewOrderSideEnum(side.upper())
-                params["side"] = side_enum
-            except ValueError:
-                logging.warning(f"无效的 Side: {side}, 尝试直接使用字符串")
-                params["side"] = side
-            
-            # 处理价格
             if price is not None:
                 params["price"] = price
-                if "MARKET" not in ord_type:
-                    try:
-                        tif_enum = NewOrderTimeInForceEnum(time_in_force)
-                        params["time_in_force"] = tif_enum
-                    except ValueError:
-                        params["time_in_force"] = NewOrderTimeInForceEnum.GTC
-            elif ord_type == "LIMIT":
-                raise ValueError("LIMIT 订单必须指定 price")
+                if "MARKET" not in ord_type.upper():
+                    params["time_in_force"] = time_in_force.upper()
             
             if stop_price is not None:
                 params["stop_price"] = stop_price
                 
             if reduce_only:
                 params["reduce_only"] = "true"
+            
+            # 合并额外参数
+            for k, v in kwargs.items():
+                params[k] = v
 
-            # 6. 发送订单
+            # 5. 执行下单
             self._check_weight(1)
             response = self.client.rest_api.new_order(**params)
-            logging.info(f"下单成功: {symbol} {side} {ord_type} {quantity}")
-            return response.data()
+            
+            # 6. 处理响应并转换格式
+            data = response.data()
+            if hasattr(data, 'model_dump'):
+                data = data.model_dump()
+            elif hasattr(data, 'dict'):
+                data = data.dict()
+            
+            logging.info(f"✅ 下单成功: {symbol} {side} {ord_type} {quantity}")
+            return convert_dict_keys(data)
             
         except Exception as e:
-            logging.error(f"下单失败: {symbol} {side} {ord_type} {quantity} - {e}")
+            logging.error(f"❌ 下单失败: {symbol} {side} {ord_type} - {e}")
             raise
     
     def get_account_balance(self) -> float:
@@ -324,7 +342,12 @@ class BinanceAPI:
                 response = self.client.rest_api.position_information_v2()
             
             data = response.data()
-            return [pos.to_dict() for pos in data]
+            # 转换为字典列表并统一键名格式
+            result = []
+            for pos in data:
+                pos_dict = pos.model_dump() if hasattr(pos, 'model_dump') else pos.to_dict() if hasattr(pos, 'to_dict') else pos
+                result.append(convert_dict_keys(pos_dict))
+            return result
         except Exception as e:
             logging.error(f"获取持仓失败: {e}")
             return []
